@@ -1,89 +1,149 @@
-const products = [
-  {
-    name: "Pokémon Sealed Products",
-    category: "Pokémon",
-    price: "Shop Collection",
-    description: "Booster boxes, ETBs, Japanese sets, and premium collector products.",
-  },
-  {
-    name: "One Piece TCG",
-    category: "One Piece",
-    price: "Shop Collection",
-    description: "Starter decks, booster boxes, chase cards, and sealed releases.",
-  },
-  {
-    name: "Dragon Ball Super",
-    category: "Dragon Ball",
-    price: "Shop Collection",
-    description: "Collector-focused cards, competitive products, and premium artwork.",
-  },
-  {
-    name: "Sports Cards",
-    category: "Sports",
-    price: "Shop Collection",
-    description: "Basketball, football, baseball, rookies, slabs, and hobby boxes.",
-  },
-  {
-    name: "Singles",
-    category: "Cards",
-    price: "Browse Singles",
-    description: "Handpicked cards for collectors looking to complete their collection.",
-  },
-  {
-    name: "Preorders",
-    category: "Upcoming",
-    price: "Reserve Now",
-    description: "Secure upcoming releases before they sell out.",
-  },
-];
+import { useState, useEffect } from 'react';
+import { useCart } from './CartContext';
+
+const fmt = (amount, currency = 'USD') =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount / 100);
+
+function ProductCard({ product }) {
+  const { addItem } = useCart();
+  const [selectedVariation, setSelectedVariation] = useState(product.variations[0] ?? null);
+
+  return (
+    <div className="product-card">
+      <div className="product-image">
+        {product.image ? (
+          <img src={product.image} alt={product.name} />
+        ) : (
+          <span>{product.categoryName || 'Item'}</span>
+        )}
+      </div>
+
+      <div className="product-info">
+        {product.categoryName && (
+          <p className="product-category">{product.categoryName}</p>
+        )}
+        <h3>{product.name}</h3>
+        {product.description && <p>{product.description}</p>}
+
+        <div className="product-bottom">
+          <strong>
+            {selectedVariation
+              ? selectedVariation.price > 0
+                ? fmt(selectedVariation.price, selectedVariation.currency)
+                : 'Free'
+              : 'Coming Soon'}
+          </strong>
+
+          {selectedVariation && (
+            <div className="product-actions">
+              {product.variations.length > 1 && (
+                <select
+                  className="variation-select"
+                  value={selectedVariation.id}
+                  onChange={(e) =>
+                    setSelectedVariation(
+                      product.variations.find((v) => v.id === e.target.value)
+                    )
+                  }
+                >
+                  {product.variations.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                className="add-to-cart-btn"
+                onClick={() => addItem(product, selectedVariation)}
+              >
+                Add to Cart
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Shop() {
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/catalog')
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to load products');
+        return r.json();
+      })
+      .then((data) => {
+        setProducts(data.products);
+        setCategories(data.categories.filter(Boolean));
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered =
+    activeCategory === 'All'
+      ? products
+      : products.filter((p) => p.categoryName === activeCategory);
+
   return (
     <section className="shop-page">
       <div className="shop-hero">
         <p className="eyebrow">The Money Mill Shop</p>
         <h1>Shop trading cards, sealed products, and collector favorites.</h1>
         <p>
-          Browse Pokémon, One Piece, Dragon Ball, sports cards, singles,
-          preorders, and collector-focused products from The Money Mill.
+          Browse Pokémon, One Piece, Dragon Ball, sports cards, singles, preorders, and
+          collector-focused products.
         </p>
       </div>
 
-      <div className="shop-toolbar">
-        <button>All</button>
-        <button>Pokémon</button>
-        <button>One Piece</button>
-        <button>Dragon Ball</button>
-        <button>Sports</button>
-        <button>Singles</button>
-      </div>
+      {!loading && !error && categories.length > 0 && (
+        <div className="shop-toolbar">
+          {['All', ...categories].map((cat) => (
+            <button
+              key={cat}
+              className={activeCategory === cat ? 'active' : ''}
+              onClick={() => setActiveCategory(cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <div className="shop-grid">
-        {products.map((product) => (
-          <div className="product-card" key={product.name}>
-            <div className="product-image">
-              <span>{product.category}</span>
-            </div>
+      {loading && (
+        <div className="shop-status">
+          <div className="loading-spinner" />
+          <p>Loading products...</p>
+        </div>
+      )}
 
-            <div className="product-info">
-              <p className="product-category">{product.category}</p>
-              <h3>{product.name}</h3>
-              <p>{product.description}</p>
+      {error && (
+        <div className="shop-status">
+          <p style={{ color: '#f87171' }}>Couldn't load products right now. Try again later.</p>
+        </div>
+      )}
 
-              <div className="product-bottom">
-                <strong>{product.price}</strong>
-                <a
-                  href="https://www.uvtofficial.com/s/shop"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View
-                </a>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {!loading && !error && filtered.length === 0 && (
+        <div className="shop-status">
+          <p>No products in this category yet.</p>
+        </div>
+      )}
+
+      {!loading && !error && filtered.length > 0 && (
+        <div className="shop-grid">
+          {filtered.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
