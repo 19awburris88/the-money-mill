@@ -54,7 +54,6 @@ function Navbar() {
 
       <div className={`nav-links${menuOpen ? " open" : ""}`}>
         <Link to="/shop" onClick={close}>Shop</Link>
-        <a href="/#preorders" onClick={close}>Preorders</a>
         <a href="/#about" onClick={close}>About</a>
         <button
           className="cart-btn"
